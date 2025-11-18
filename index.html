@@ -152,6 +152,19 @@
         const prevBtn = document.getElementById("prevBtn");
         const nextImgBtn = document.getElementById("nextImgBtn");
 
+        /* --- QRコード初期座標取得 --- */
+        function getQRInitialPosition() {
+            const params = new URLSearchParams(window.location.search);
+            const lat = parseFloat(params.get("lat"));
+            const lon = parseFloat(params.get("lon"));
+            if (!isNaN(lat) && !isNaN(lon)) {
+                imuLat = lat;
+                imuLon = lon;
+                info.innerText = `QRコード補正済み位置: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}`;
+                spots[0].lat = lat;
+                spots[0].lon = lon;
+            }
+        }
 
         /* --- 避難開始ボタン用関数 --- */
         function startEvacuation() {
