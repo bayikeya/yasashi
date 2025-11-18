@@ -1,249 +1,352 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
-  <meta charset="UTF-8" />
-  <title>IMU統合版：複数画像切替付きスポット案内（自動音声版）</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body { margin: 0; overflow: hidden; background-color: #000; color: white; font-family: sans-serif; text-align: center; }
-    #camera { width: 100vw; height: 100vh; object-fit: cover; position: absolute; top: 0; left: 0; z-index: -1; }
-    #info { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; z-index: 1; white-space: pre-wrap; }
-    #image { position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%); width: 300px; height: 300px; object-fit: contain; display: none; z-index: 1; background: black; }
-    .btn { position: absolute; left: 50%; transform: translateX(-50%); background-color: #007BFF; color: white; border: none; padding: 10px 20px; font-size: 14px; border-radius: 8px; cursor: pointer; z-index: 2; display: none; }
-    #patternBtn { bottom: 70px; }
-    #nextBtn { bottom: 20px; }
-    .img-nav { position: absolute; bottom: 260px; z-index: 2; font-size: 20px; background: rgba(0,0,0,0.5); color: white; border: none; padding: 5px 15px; cursor: pointer; border-radius: 6px; }
-    #prevBtn { left: 10%; }
-    #nextImgBtn { right: 10%; }
-  </style>
+    <meta charset="UTF-8" />
+    <title>IMU統合版：複数画像切替付きスポット案内（自動音声版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+        }
+
+        #camera {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 1;
+            white-space: pre-wrap;
+        }
+
+        #image {
+            position: absolute;
+            bottom: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+            display: none;
+            z-index: 1;
+            background: black;
+        }
+
+        .btn {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 2;
+            display: none;
+        }
+
+        #patternBtn {
+            bottom: 70px;
+        }
+
+        #nextBtn {
+            bottom: 20px;
+        }
+
+        #startBtn {
+            bottom: 120px;
+            display: block;
+        }
+
+        /* 避難開始ボタン */
+        .img-nav {
+            position: absolute;
+            bottom: 260px;
+            z-index: 2;
+            font-size: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        #prevBtn {
+            left: 10%;
+        }
+
+        #nextImgBtn {
+            right: 10%;
+        }
+    </style>
 </head>
+
 <body>
 
-<video id="camera" autoplay playsinline muted></video>
-<div id="info">位置情報・IMU取得中...</div>
-<img id="image" src="" alt="スポット画像" />
-<button class="btn" id="patternBtn" onclick="switchPattern()">English</button>
-<button class="btn" id="nextBtn" onclick="goToNextSpot()">このスポットは完了</button>
-<button class="img-nav" id="prevBtn" onclick="showPrevImage()" style="display:none;">←</button>
-<button class="img-nav" id="nextImgBtn" onclick="showNextImage()" style="display:none;">→</button>
-<audio id="audio" src=""></audio>
+    <video id="camera" autoplay playsinline muted></video>
+    <div id="info">位置情報・IMU取得中...</div>
+    <img id="image" src="" alt="スポット画像" />
+    <button class="btn" id="patternBtn" onclick="switchPattern()">English</button>
+    <button class="btn" id="nextBtn" onclick="goToNextSpot()">このスポットは完了</button>
+    <button class="btn" id="startBtn" onclick="startEvacuation()">避難開始</button>
+    <button class="img-nav" id="prevBtn" onclick="showPrevImage()" style="display:none;">←</button>
+    <button class="img-nav" id="nextImgBtn" onclick="showNextImage()" style="display:none;">→</button>
+    <audio id="audio" src=""></audio>
 
-<script>
-const spots = [
-  { name: "東公衆トイレ前", lat: 35.69355503560675,  lon: 140.66917459260404, radius: 0, images: ["矢指１ー１.JPG", "矢指１ー２.JPG"], audio: { A: "矢指１_東公衆トイレ前ja.mp3", B: "矢指１_東公衆トイレ前en.mp3", C: "矢指１_東公衆トイレ前ch.mp3" } },
-  { name: "避難誘導サイン前", lat: 35.693971059606824, lon: 140.66996899502158, radius: 20, images: ["矢指２ー１.JPG", "矢指２ー２.JPG"], audio: { A: "矢指２_避難看板前ja.mp3", B: "矢指２_避難看板前en.mp3", C: "矢指２_避難看板前ch.mp3" } },
-  { name: "避難誘導サイン付き電柱下", lat: 35.69584753473119, lon: 140.66948530177515, radius: 20, images: ["矢指３ー１.JPG", "矢指３－２.JPG"], audio: { A: "矢指３_看板付き電柱下ja.mp3", B: "矢指３_看板付き電柱下en.mp3", C: "矢指３_看板付き電柱下ch.mp3" } },
-  { name: "横断歩道信号下", lat: 35.697147375381995, lon: 140.67124135170698, radius: 20, images: ["矢指４ー１.JPG", "矢指４ー２.JPG"], audio: { A: "矢指４_横断歩道信号下ja.mp3", B: "矢指４_横断歩道信号下en.mp3", C: "矢指４_横断歩道信号下ch.mp3" } },
-  { name: "目的地", lat: 35.70306667959775, lon:140.66916093129308, radius: 20, images: ["矢指５ー１.JPG", "矢指５ー２.JPG"], audio: { A: "目的地ja.mp3", B: "目的地en.mp3", C: "目的地ch.mp3" } }
-];
+    <script>
+        const spots = [
+                { name: "東公衆トイレ前", lat: 35.69355503560675, lon: 140.66917459260404, radius: 0, images: ["矢指１ー１.JPG", "矢指１ー２.JPG"], audio: { A: "矢指１_東公衆トイレ前ja.mp3", B: "矢指１_東公衆トイレ前en.mp3", C: "矢指１_東公衆トイレ前ch.mp3" } },
+                { name: "避難誘導サイン前", lat: 35.693971059606824, lon: 140.66996899502158, radius: 20, images: ["矢指２ー１.JPG", "矢指２ー２.JPG"], audio: { A: "矢指２_避難看板前ja.mp3", B: "矢指２_避難看板前en.mp3", C: "矢指２_避難看板前ch.mp3" } },
+                { name: "避難誘導サイン付き電柱下", lat: 35.69584753473119, lon: 140.66948530177515, radius: 20, images: ["矢指３ー１.JPG", "矢指３－２.JPG"], audio: { A: "矢指３_看板付き電柱下ja.mp3", B: "矢指３_看板付き電柱下en.mp3", C: "矢指３_看板付き電柱下ch.mp3" } },
+                { name: "横断歩道信号下", lat: 35.697147375381995, lon: 140.67124135170698, radius: 20, images: ["矢指４ー１.JPG", "矢指４ー２.JPG"], audio: { A: "矢指４_横断歩道信号下ja.mp3", B: "矢指４_横断歩道信号下en.mp3", C: "矢指４_横断歩道信号下ch.mp3" } },
+                { name: "目的地", lat: 35.70306667959775, lon: 140.66916093129308, radius: 20, images: ["矢指５ー１.JPG", "矢指５ー２.JPG"], audio: { A: "目的地ja.mp3", B: "目的地en.mp3", C: "目的地ch.mp3" } }
+            ];
 
-let currentPattern = "A";
-let imageIndex = 0;
+        let currentIndex = 0;
+        let hasEnteredSpot = false;
+        let currentSpot = null;
+        let currentPattern = "A";
+        let imageIndex = 0;
 
-let stepCount = 0;
-let lastStepTime = 0;
-let stepDetected = false;
-let lastAccMag = 0;let stepInterval = 0;
-let lastMoveTime = Date.now();
-const STEP_LENGTH = 0.7; // 1歩あたり0.7m
-const STEP_THRESHOLD = 1.2; // 加速度変化のしきい値
-let currentSpeed = 0;
+        let stepCount = 0;
+        let lastStepTime = 0;
+        let stepDetected = false;
+        let lastAccMag = 0; let stepInterval = 0;
+        let lastMoveTime = Date.now();
+        const STEP_LENGTH = 0.7;
+        const STEP_THRESHOLD = 1.2;
+        let currentSpeed = 0;
 
-let lastUpdateTime = null;
-let velocity = {x: 0, y: 0, z: 0};
-let imuLat = null, imuLon = null;
-let heading = 0; // 方位（度）
+        let lastUpdateTime = null;
+        let velocity = { x: 0, y: 0, z: 0 };
+        let imuLat = null, imuLon = null;
+        let heading = 0;
 
-const camera = document.getElementById("camera");
-const info = document.getElementById("info");
-const image = document.getElementById("image");
-const nextBtn = document.getElementById("nextBtn");
-const patternBtn = document.getElementById("patternBtn");
-const audio = document.getElementById("audio");
-const prevBtn = document.getElementById("prevBtn");
-const nextImgBtn = document.getElementById("nextImgBtn");
+        const camera = document.getElementById("camera");
+        const info = document.getElementById("info");
+        const image = document.getElementById("image");
+        const nextBtn = document.getElementById("nextBtn");
+        const patternBtn = document.getElementById("patternBtn");
+        const startBtn = document.getElementById("startBtn");
+        const audio = document.getElementById("audio");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextImgBtn = document.getElementById("nextImgBtn");
 
-/* ---------------- カメラ起動 ---------------- */
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-  .then(stream => camera.srcObject = stream)
-  .catch(err => alert("カメラへのアクセスに失敗しました: " + err));
 
-/* ---------------- 距離計算（haversine） ---------------- */
-function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
+        /* --- 避難開始ボタン用関数 --- */
+        function startEvacuation() {
+            getQRInitialPosition();
 
-/* ---------------- スポット判定 ---------------- */
-function checkProximity(lat, lon) {
-  if (currentIndex >= spots.length) {
-    info.innerText = "到着";
-    hideAllUI();
-    return;
-  }
+            currentIndex = 0;
+            hasEnteredSpot = true;
+            currentSpot = spots[0];
+            imageIndex = 0;
 
-  const spot = spots[currentIndex];
-  const distance = getDistance(lat, lon, spot.lat, spot.lon);
-  const range = spot.radius || 10;
+            image.src = currentSpot.images[imageIndex];
+            image.style.display = "block";
+            nextBtn.style.display = "block";
+            patternBtn.style.display = "block";
+            prevBtn.style.display = currentSpot.images.length > 1 ? "block" : "none";
+            nextImgBtn.style.display = currentSpot.images.length > 1 ? "block" : "none";
 
-  info.innerText =
-    `緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}\n` +
-    `次のスポット: ${spot.name}（${currentIndex + 1} / ${spots.length}）\n` +
-    `残り距離: ${distance.toFixed(1)}m\n`;
+            audio.src = currentSpot.audio[currentPattern];
+            audio.loop = true;
+            audio.play().catch(e => console.log("自動再生に失敗:", e));
 
-  if (currentIndex >= 1 && !hasEnteredSpot && distance < range) {
-    showSpot(spot);
-  }
-}
+            checkProximity(imuLat, imuLon);
 
-/* ---------------- スポット表示 ---------------- */
-function showSpot(spot) {
-  currentSpot = spot;
-  hasEnteredSpot = true;
-  imageIndex = 0;
+            startBtn.style.display = "none";
+        }
 
-  audio.src = spot.audio[currentPattern];
-  image.src = spot.images[imageIndex];
-  image.style.display = "block";
-  nextBtn.style.display = "block";
-  patternBtn.style.display = "block";
-  prevBtn.style.display = spot.images.length > 1 ? "block" : "none";
-  nextImgBtn.style.display = spot.images.length > 1 ? "block" : "none";
+        /* --- カメラ --- */
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+            .then(stream => camera.srcObject = stream)
+            .catch(err => alert("カメラへのアクセスに失敗しました: " + err));
 
-  audio.loop = true;
-  audio.play().catch(e => console.log("自動再生に失敗:", e));
-}
+        /* --- 距離計算 --- */
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
 
-/* ---------------- 音声パターン切替 ---------------- */
-function switchPattern() {
-  const patterns = ["A", "B", "C"];
-  const index = patterns.indexOf(currentPattern);
-  currentPattern = patterns[(index + 1) % patterns.length];
-  updatePatternButtonText();
-
-  if (currentSpot) {
-    audio.pause();
-    audio.src = currentSpot.audio[currentPattern];
-    audio.play().catch(e => console.log("自動再生に失敗:", e));
-  }
-}
-
-function updatePatternButtonText() {
-  patternBtn.innerText = currentPattern === "A" ? "English" : currentPattern === "B" ? "中文" : "日本語";
-}
-
-/* ---------------- 画像切替 ---------------- */
-function showPrevImage() {
-  if (!currentSpot) return;
-  imageIndex = (imageIndex - 1 + currentSpot.images.length) % currentSpot.images.length;
-  image.src = currentSpot.images[imageIndex];
-}
-function showNextImage() {
-  if (!currentSpot) return;
-  imageIndex = (imageIndex + 1) % currentSpot.images.length;
-  image.src = currentSpot.images[imageIndex];
-}
-
-/* ---------------- 次のスポットへ ---------------- */
-function goToNextSpot() {
-  audio.pause();
-  currentIndex++;
-  hasEnteredSpot = false;
-  currentSpot = null;
-  hideAllUI();
-}
-
-/* ---------------- UI 非表示 ---------------- */
-function hideAllUI() {
-  image.style.display = "none";
-  nextBtn.style.display = "none";
-  patternBtn.style.display = "none";
-  prevBtn.style.display = "none";
-  nextImgBtn.style.display = "none";
-}
-
-/* ---------------- IMU（加速度＋方位） ---------------- */
-if (window.DeviceOrientationEvent) {
-  window.addEventListener("deviceorientation", (event) => {
-    if (event.absolute && event.alpha != null) {
-      heading = 360 - event.alpha; // 北を0°とした方位
-    }
-  });
-} 
-if (window.DeviceMotionEvent) {
-        window.addEventListener("devicemotion", (event) => {
-            const acc = event.accelerationIncludingGravity;
-            const now = Date.now();
-            if (!lastUpdateTime || !imuLat || !imuLon) {
-                lastUpdateTime = now;
+        /* --- スポット判定 --- */
+        function checkProximity(lat, lon) {
+            if (currentIndex >= spots.length) {
+                info.innerText = "すべてのスポットを通過しました。";
+                hideAllUI();
                 return;
             }
 
-            const dt = (now - lastUpdateTime) / 1000;
-            lastUpdateTime = now;
+            const spot = spots[currentIndex];
+            const distance = getDistance(lat, lon, spot.lat, spot.lon);
+            const range = spot.radius || 10;
 
-            // --- 加速度の大きさ ---
-            const accMag = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
+            info.innerText =
+                `IMU補正位置: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}\n` +
+                `次のスポット: ${spot.name}（${currentIndex + 1} / ${spots.length}）\n` +
+                `残り距離: ${distance.toFixed(1)}m\n`;
 
-            // --- ステップ検出（ピーク判定） ---
-            if (accMag - lastAccMag > STEP_THRESHOLD && now - lastStepTime > 300) {
-                stepCount++;
-                stepDetected = true;
-                stepInterval = (now - lastStepTime) / 1000;
-                lastStepTime = now;
-                lastMoveTime = now;
-
-                // 歩行速度 = 歩幅 ÷ ステップ間隔
-                currentSpeed = STEP_LENGTH / stepInterval;
-                // 速度を4〜8km/hの範囲に制限
-                currentSpeed = Math.min(Math.max(currentSpeed, 1.1), 2.2);
-            } else {
-                stepDetected = false;
+            if (currentIndex >= 1 && !hasEnteredSpot && distance < range) {
+                showSpot(spot);
             }
+        }
 
-            lastAccMag = accMag;
+        /* --- スポット表示 --- */
+        function showSpot(spot) {
+            currentSpot = spot;
+            hasEnteredSpot = true;
+            imageIndex = 0;
 
-            // --- 停止判定 ---
-            if (now - lastMoveTime > 2000) { // 2秒間ステップなし
-                currentSpeed = 0;
+            audio.src = spot.audio[currentPattern];
+            image.src = spot.images[imageIndex];
+            image.style.display = "block";
+            nextBtn.style.display = "block";
+            patternBtn.style.display = "block";
+            prevBtn.style.display = spot.images.length > 1 ? "block" : "none";
+            nextImgBtn.style.display = spot.images.length > 1 ? "block" : "none";
+
+            audio.loop = true;
+            audio.play().catch(e => console.log("自動再生に失敗:", e));
+        }
+
+        /* --- 音声パターン切替 --- */
+        function switchPattern() {
+            const patterns = ["A", "B", "C"];
+            const index = patterns.indexOf(currentPattern);
+            currentPattern = patterns[(index + 1) % patterns.length];
+            updatePatternButtonText();
+
+            if (currentSpot) {
+                audio.pause();
+                audio.src = currentSpot.audio[currentPattern];
+                audio.play().catch(e => console.log("自動再生に失敗:", e));
             }
+        }
+        function updatePatternButtonText() {
+            patternBtn.innerText = currentPattern === "A" ? "English" : currentPattern === "B" ? "中文" : "日本語";
+        }
 
-            // --- 位置更新 ---
-            if (currentSpeed > 0 && heading && imuLat && imuLon) {
-                const distance = currentSpeed * dt;
-                const dLat = (distance * Math.cos(heading * Math.PI / 180)) / 111111;
-                const dLon = (distance * Math.sin(heading * Math.PI / 180)) / (111111 * Math.cos(imuLat * Math.PI / 180));
-                imuLat += dLat;
-                imuLon += dLon;
-                checkProximity(imuLat, imuLon);
-            }
-        });
-    }
+        /* --- 画像切替 --- */
+        function showPrevImage() {
+            if (!currentSpot) return;
+            imageIndex = (imageIndex - 1 + currentSpot.images.length) % currentSpot.images.length;
+            image.src = currentSpot.images[imageIndex];
+        }
+        function showNextImage() {
+            if (!currentSpot) return;
+            imageIndex = (imageIndex + 1) % currentSpot.images.length;
+            image.src = currentSpot.images[imageIndex];
+        }
 
-   
-/* ---------------- GPS ---------------- */
-if ("geolocation" in navigator) {
-  navigator.geolocation.watchPosition(
-    pos => {
-      imuLat = pos.coords.latitude;
-      imuLon = pos.coords.longitude;
-      lastUpdateTime = Date.now();
-      checkProximity(imuLat, imuLon);
-    },
-    err => info.innerText = "位置情報の取得に失敗しました",
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
-  );
-}
+        /* --- 次のスポットへ --- */
+        function goToNextSpot() {
+            audio.pause();
+            currentIndex++;
+            hasEnteredSpot = false;
+            currentSpot = null;
+            hideAllUI();
+        }
 
-window.onload = () => {
-  showSpot(spots[0]);
-  updatePatternButtonText();
-};
-</script>
+        /* --- UI 非表示 --- */
+        function hideAllUI() {
+            image.style.display = "none";
+            nextBtn.style.display = "none";
+            patternBtn.style.display = "none";
+            prevBtn.style.display = "none";
+            nextImgBtn.style.display = "none";
+        }
+
+        /* --- IMU（加速度＋方位） --- */
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener("deviceorientation", (event) => {
+                if (event.absolute && event.alpha != null) {
+                    heading = 360 - event.alpha;
+                }
+            });
+        }
+        if (window.DeviceMotionEvent) {
+            window.addEventListener("devicemotion", (event) => {
+                const acc = event.accelerationIncludingGravity;
+                const now = Date.now();
+                if (!lastUpdateTime || !imuLat || !imuLon) {
+                    lastUpdateTime = now;
+                    return;
+                }
+
+                const dt = (now - lastUpdateTime) / 1000;
+                lastUpdateTime = now;
+                const accMag = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
+
+                if (accMag - lastAccMag > STEP_THRESHOLD && now - lastStepTime > 300) {
+                    stepCount++;
+                    stepDetected = true;
+                    stepInterval = (now - lastStepTime) / 1000;
+                    lastStepTime = now;
+                    lastMoveTime = now;
+                    currentSpeed = STEP_LENGTH / stepInterval;
+                    currentSpeed = Math.min(Math.max(currentSpeed, 1.1), 2.2);
+                } else {
+                    stepDetected = false;
+                }
+                lastAccMag = accMag;
+
+                if (now - lastMoveTime > 2000) currentSpeed = 0;
+
+                if (currentSpeed > 0 && heading && imuLat && imuLon) {
+                    const distance = currentSpeed * dt;
+                    const dLat = (distance * Math.cos(heading * Math.PI / 180)) / 111111;
+                    const dLon = (distance * Math.sin(heading * Math.PI / 180)) / (111111 * Math.cos(imuLat * Math.PI / 180));
+                    imuLat += dLat;
+                    imuLon += dLon;
+                    checkProximity(imuLat, imuLon);
+                }
+            });
+        }
+
+        /* --- GPS --- */
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(
+                pos => {
+                    imuLat = pos.coords.latitude;
+                    imuLon = pos.coords.longitude;
+                    lastUpdateTime = Date.now();
+                    checkProximity(imuLat, imuLon);
+                },
+                err => info.innerText = "位置情報の取得に失敗しました",
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+            );
+        }
+
+        window.onload = () => {
+            getQRInitialPosition();
+            updatePatternButtonText();
+        };
+    </script>
 
 </body>
+
 </html>
