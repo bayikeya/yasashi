@@ -219,7 +219,7 @@
             const range = spot.radius || 10;
 
             info.innerText =
-                `IMU補正位置: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}\n` +
+                `座標: 緯度 ${lat.toFixed(6)}, 経度 ${lon.toFixed(6)}\n` +
                 `次のスポット: ${spot.name}（${currentIndex + 1} / ${spots.length}）\n` +
                 `残り距離: ${distance.toFixed(1)}m\n`;
 
@@ -363,4 +363,5 @@
 </body>
 
 </html>
+
 
